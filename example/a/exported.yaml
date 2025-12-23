@@ -1,0 +1,19 @@
+common:
+  output: exported.go # Output file for the exports
+  exclude: # Global exclusion settings
+    types: false # Set to true to exclude all types
+    constants: false # Set to true to exclude all constants
+    variables: false # Set to true to exclude all variables
+    functions: false # Set to true to exclude all functions
+    names: [] # List of specific names to exclude (supports regex by wrapping with slashes, e.g., /pattern/)
+    files: [] # List of specific files to exclude (supports regex by wrapping with slashes, e.g., /pattern/)
+exports:
+  - import: ./aa
+    exclude: # Export-specific exclusion settings
+      types: false # Set to true to exclude all types
+      constants: false # Set to true to exclude all constants
+      variables: false # Set to true to exclude all variables
+      functions: false # Set to true to exclude all functions
+      names: [] # List of specific names to exclude (supports regex by wrapping with slashes, e.g., /pattern/)
+      files: [] # List of specific files to exclude (supports regex by wrapping with slashes, e.g., /pattern/)
+  - import: ./ab
