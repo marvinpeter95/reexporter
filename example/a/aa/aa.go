@@ -7,6 +7,9 @@ const (
 	EnumValue1 MyEnum = iota // EnumValue1
 	EnumValue2               // EnumValue2
 	EnumValue3               // EnumValue3
+
+	// EnumValue4 comment
+	EnumValue4 // Comment
 )
 
 // MyVar is an example variable

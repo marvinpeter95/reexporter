@@ -19,26 +19,26 @@ const (
 
 // Config represents the overall configuration for the re-exporter.
 type Config struct {
-	Common  Export   `yaml:"common"`  // Common export configuration
-	Exports []Export `yaml:"exports"` // List of export configurations
+	Common  Export    `yaml:"common"`  // Common export configuration
+	Exports []*Export `yaml:"exports"` // List of export configurations
 }
 
 // Export represents the export configuration for a specific module.
 type Export struct {
-	Import  string            `yaml:"import"`  // Module import path
-	Output  string            `yaml:"output"`  // Output file name
-	Exclude Exclusion         `yaml:"exclude"` // Exclusion rules for re-exports
-	Rename  map[string]string `yaml:"rename"`  // Rename symbol name during re-export
+	Import  string             `yaml:"import"`  // Module import path
+	Output  string             `yaml:"output"`  // Output file name
+	Exclude Exclusion          `yaml:"exclude"` // Exclusion rules for re-exports
+	Rename  map[Matcher]string `yaml:"rename"`  // Rename symbol name during re-export
 }
 
 // Exclusion defines what kinds of symbols to exclude from re-exporting.
 type Exclusion struct {
-	Types     bool     `yaml:"types"`     // Do not export types
-	Variables bool     `yaml:"variables"` // Do not export variables
-	Constants bool     `yaml:"constants"` // Do not export constants
-	Functions bool     `yaml:"functions"` // Do not export functions
-	Names     []Filter `yaml:"names"`     // Do not export names matching these filters
-	Files     []Filter `yaml:"files"`     // Do not export names from file matching these filters (file name only without extension)
+	Types     bool      `yaml:"types"`     // Do not export types
+	Variables bool      `yaml:"variables"` // Do not export variables
+	Constants bool      `yaml:"constants"` // Do not export constants
+	Functions bool      `yaml:"functions"` // Do not export functions
+	Names     []Matcher `yaml:"names"`     // Do not export names matching these filters
+	Files     []Matcher `yaml:"files"`     // Do not export names from file matching these filters (file name only without extension)
 }
 
 // IncludeFile checks if the given file name is allowed based on the
@@ -78,8 +78,11 @@ func (es *Export) ExportAs(name *ast.Ident, exportType ExportType) (string, bool
 
 	// Apply renaming if applicable
 	newName := name.Name
-	if renamed, ok := es.Rename[name.Name]; ok {
-		newName = renamed
+	for matcher, replacement := range es.Rename {
+		if matcher.Match(name.Name) {
+			newName = matcher.ReplaceAll(name.Name, replacement)
+			break
+		}
 	}
 
 	// Not matched by specified include filter
@@ -104,9 +107,7 @@ func FromFile(path string) (*Config, error) {
 		config.Common.Output = "exported.go"
 	}
 
-	for i := range config.Exports {
-		es := &config.Exports[i]
-
+	for _, es := range config.Exports {
 		// Merge Exclude
 		es.Exclude.Types = es.Exclude.Types || config.Common.Exclude.Types
 		es.Exclude.Variables = es.Exclude.Variables || config.Common.Exclude.Variables

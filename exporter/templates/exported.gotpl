@@ -20,10 +20,10 @@ import (
 {{- define "render_group" -}}
     {{- if ne (len .Values) 0}}
         {{ .Group }} (
-            {{ range .Values }}
+            {{- range .Values }}
                 {{ template "render_doc" .Comment.Doc }}
                 {{ .ExportName }} = {{ .Package }}.{{ .Name }} {{ template "render_comment" .Comment.Line }}
-            {{ end }}
+            {{- end }}
         )
     {{- end }}
 {{- end }}

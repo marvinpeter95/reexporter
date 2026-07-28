@@ -63,6 +63,8 @@ func templateMapProperty(p string, s any) []any {
 			} else if m := v.MethodByName(p); m.IsValid() && m.Type().NumIn() == 0 && m.Type().NumOut() == 1 {
 				result = append(result, m.Call(nil)[0].Interface())
 			}
+		default:
+			// Nothing
 		}
 	}
 
@@ -106,6 +108,8 @@ func templateParenthesize(params ...any) string {
 			switch rv.Kind() {
 			case reflect.Slice, reflect.Map, reflect.Array:
 				condition = rv.Len() != 0
+			default:
+				// Nothing
 			}
 		}
 	}

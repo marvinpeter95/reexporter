@@ -8,13 +8,13 @@ import (
 // Filter represents a filter that can match exact text or a regular expression.
 //
 // Regular expressions must be enclosed in slashes (e.g., /pattern/).
-type Filter struct {
+type Replacer struct {
 	text  string
 	regex *regexp.Regexp
 }
 
 // Match checks if the given string matches the filter.
-func (f *Filter) Match(s string) bool {
+func (f *Replacer) Match(s string) bool {
 	// Exact match if no regex is defined
 	if f.regex == nil {
 		return s == f.text
@@ -25,7 +25,7 @@ func (f *Filter) Match(s string) bool {
 }
 
 // UnmarshalText unmarshals the filter from text.
-func (f *Filter) UnmarshalText(text []byte) error {
+func (f *Replacer) UnmarshalText(text []byte) error {
 	var err error
 
 	f.text = string(text)

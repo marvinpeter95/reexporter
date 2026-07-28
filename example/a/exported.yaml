@@ -16,4 +16,8 @@ exports:
       functions: false # Set to true to exclude all functions
       names: [] # List of specific names to exclude (supports regex by wrapping with slashes, e.g., /pattern/)
       files: [] # List of specific files to exclude (supports regex by wrapping with slashes, e.g., /pattern/)
+    rename: # Map of renaming rules for exporting identifiers (supports regex by wrapping with slashes, e.g., /pattern/)
+      MyEnum: MyE # Static renaming e.g. MyEnum => MyE
+      /EnumValue(.*)/: EV$1 # Regex-based renaming e.g EnumValue1 => EV1
   - import: ./ab
+    output: abc.go # You can override [common.output]

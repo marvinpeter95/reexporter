@@ -16,10 +16,12 @@ type FormatterError struct {
 
 // Error returns a formatted error message with the unformatted code.
 func (e *FormatterError) Error() string {
-	sb := &strings.Builder{}
-	sb.WriteString("Error formatting generated code: " + e.OrigErr.Error() + "\n")
+	sb := new(strings.Builder)
+	sb.WriteString("Error formatting generated code: ")
+	sb.WriteString(e.OrigErr.Error())
+	sb.WriteString("\n")
 	for n, line := range strings.Split(e.Code, "\n") {
-		sb.WriteString(fmt.Sprintf("  %4d: %s\n", n+1, line))
+		fmt.Fprintf(sb, "  %4d: %s\n", n+1, line)
 	}
 	return sb.String()
 }

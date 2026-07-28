@@ -3,42 +3,30 @@ package a
 
 import (
 	"example.com/example/a/aa"
-	"example.com/example/a/ab"
 )
 
 type (
 
 	// MyEnum is an example enumeration type
-	MyEnum = aa.MyEnum
+	MyE = aa.MyEnum
 )
 
 var (
-
-	// MyVar is an example variable
 	MyVar = aa.MyVar // MyVar
-
 )
 
 const (
-	EnumValue1 = aa.EnumValue1 // EnumValue1
+	EV1 = aa.EnumValue1 // EnumValue1
 
-	EnumValue2 = aa.EnumValue2 // EnumValue2
+	EV2 = aa.EnumValue2 // EnumValue2
 
-	EnumValue3 = aa.EnumValue3 // EnumValue3
+	EV3 = aa.EnumValue3 // EnumValue3
 
+	// EnumValue4 comment
+	EV4 = aa.EnumValue4 // Comment
 )
 
 // SayHello prints a greeting message using MyVar.
 func SayHello() {
 	aa.SayHello()
-}
-
-// Sum adds two numbers of a generic type T which can be either int or float64.
-func Sum[T int | float64](a T, b T) (r T) {
-	return ab.Sum(a, b)
-}
-
-// SumAll adds a variadic number of values of a generic type T which can be either int or float64.
-func SumAll[T int | float64](values ...T) T {
-	return ab.SumAll(values...)
 }

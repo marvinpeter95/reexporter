@@ -56,15 +56,23 @@ func main() {
 		}
 
 		// Write the generated code next to the exported.yaml file
-		outputName := config.Common.Output
-		if baseName, ok := strings.CutPrefix(outputName, "__"); ok {
-			outputName = filepath.Base(pkgPath) + baseName
+
+		for fn, content := range code {
+			outputName := fn
+			if baseName, ok := strings.CutPrefix(outputName, "__"); ok {
+				outputName = filepath.Base(pkgPath) + baseName
+			}
+			err := os.WriteFile(
+				filepath.Join(filepath.Dir(path), outputName),
+				[]byte(content),
+				0o600,
+			)
+			if err != nil {
+				return err
+			}
 		}
-		return os.WriteFile(
-			filepath.Join(filepath.Dir(path), outputName),
-			[]byte(code),
-			0o644,
-		)
+
+		return nil
 	})
 	if err != nil {
 		panic(err)

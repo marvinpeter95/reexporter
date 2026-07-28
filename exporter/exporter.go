@@ -17,53 +17,66 @@ var ErrLoadingPackages = errors.New("failed to load packages")
 
 // Exporter represents the code exporter.
 type Exporter struct {
-	Exports []config.Export  // The export configurations.
-	Dir     string           // The dictory of the main module where the go.mod is located.
-	PkgName string           // The package name for the generated code.
-	data    *exports.Exports // Holds the collected export data.
-	fset    *token.FileSet   // Keep track of positions for file-based exclusion.
+	Exports []*config.Export            // The export configurations.
+	Dir     string                      // The dictory of the main module where the go.mod is located.
+	PkgName string                      // The package name for the generated code.
+	data    map[string]*exports.Exports // Holds the collected export data.
+	fset    *token.FileSet              // Keep track of positions for file-based exclusion.
 }
 
 // New creates a new Exporter with the given configuration.
-func New(exports []config.Export, dir string, pkgName string) *Exporter {
-	return &Exporter{Exports: exports, Dir: dir, PkgName: pkgName}
+func New(es []*config.Export, dir string, pkgName string) *Exporter {
+	return &Exporter{Exports: es, Dir: dir, PkgName: pkgName}
 }
 
 // Generate generates the exported code based on the configuration.
-func (e *Exporter) Generate() (string, error) {
-	e.data = exports.New(filepath.Base(e.PkgName))
+func (e *Exporter) Generate() (map[string]string, error) {
+	e.data = map[string]*exports.Exports{}
+
+	for _, c := range e.Exports {
+		e.data[c.Output] = exports.New(filepath.Base(e.PkgName))
+	}
+
 	e.fset = token.NewFileSet()
 
 	for _, export := range e.Exports {
 		if err := e.processExport(export); err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
-	// Render the template with the collected data.
-	codeStr, err := renderTemplate(e.data)
-	if err != nil {
-		return "", err
+	codeMap := map[string]string{}
+
+	for fn, data := range e.data {
+		// Render the template with the collected data.
+		codeStr, err := renderTemplate(data)
+		if err != nil {
+			return nil, err
+		}
+
+		// Format the generated code.
+		formatted, err := formatCode(codeStr)
+		if err != nil {
+			return nil, err
+		}
+
+		codeMap[fn] = formatted
 	}
 
-	// Format the generated code.
-	formatted, err := formatCode(codeStr)
-	if err != nil {
-		return "", err
-	}
-
-	return string(formatted), nil
+	return codeMap, nil
 }
 
 // processExport processes a single export configuration and updates the ExportData accordingly.
-func (e *Exporter) processExport(export config.Export) error {
+func (e *Exporter) processExport(export *config.Export) error {
 	// Resolve relative imports.
 	if sub, ok := strings.CutPrefix(export.Import, "./"); ok {
 		export.Import = filepath.Join(e.PkgName, sub)
 	}
 
+	data := e.data[export.Output]
+
 	// Always add the main import.
-	e.data.AddImport(export.Import)
+	data.AddImport(export.Import)
 
 	cfg := packages.Config{
 		Fset: e.fset,
@@ -89,14 +102,14 @@ func (e *Exporter) processExport(export config.Export) error {
 			// Only add imports that are not part of the standard library, since those may
 			// may not be resolvable via the formatter.
 			if strings.Contains(imp.ID, ".") {
-				e.data.AddImport(imp.ID)
+				data.AddImport(imp.ID)
 			}
 		}
 
 		// Inspect the AST of each file in the package
 		for _, fileAst := range pkg.Syntax {
 			ast.Inspect(fileAst, func(n ast.Node) bool {
-				return e.inspectAST(pkg, &export, n)
+				return e.inspectAST(pkg, export, n)
 			})
 		}
 	}
@@ -109,6 +122,8 @@ func (e *Exporter) inspectAST(pkg *packages.Package, export *config.Export, n as
 	if n == nil {
 		return true
 	}
+	data := e.data[export.Output]
+
 	fn := e.fset.File(n.Pos()).Name()
 	fn = strings.TrimSuffix(filepath.Base(fn), ".go")
 
@@ -122,7 +137,12 @@ func (e *Exporter) inspectAST(pkg *packages.Package, export *config.Export, n as
 			switch s := spec.(type) {
 			case *ast.TypeSpec:
 				if name, ok := export.ExportAs(s.Name, config.ExportTypeType); ok {
-					e.data.AddType(name, s.Name.Name, filepath.Base(pkg.ID), exports.ParseComment(n.Doc, s.Comment))
+					data.AddType(
+						name,
+						s.Name.Name,
+						filepath.Base(pkg.ID),
+						exports.ParseComment(n.Doc, s.Comment),
+					)
 				}
 			case *ast.ValueSpec:
 				for _, nameIdent := range s.Names {
@@ -131,10 +151,23 @@ func (e *Exporter) inspectAST(pkg *packages.Package, export *config.Export, n as
 						exportType = config.ExportTypeConstant
 					}
 					if name, ok := export.ExportAs(nameIdent, exportType); ok {
-						if exportType == config.ExportTypeVariable {
-							e.data.AddVariable(name, nameIdent.Name, filepath.Base(pkg.ID), exports.ParseComment(n.Doc, s.Comment))
-						} else if exportType == config.ExportTypeConstant {
-							e.data.AddConstant(name, nameIdent.Name, filepath.Base(pkg.ID), exports.ParseComment(n.Doc, s.Comment))
+						switch exportType {
+						case config.ExportTypeVariable:
+							data.AddVariable(
+								name,
+								nameIdent.Name,
+								filepath.Base(pkg.ID),
+								exports.ParseComment(s.Doc, s.Comment),
+							)
+						case config.ExportTypeConstant:
+							data.AddConstant(
+								name,
+								nameIdent.Name,
+								filepath.Base(pkg.ID),
+								exports.ParseComment(s.Doc, s.Comment),
+							)
+						default:
+							// Nothing
 						}
 					}
 				}
@@ -142,7 +175,13 @@ func (e *Exporter) inspectAST(pkg *packages.Package, export *config.Export, n as
 		}
 	case *ast.FuncDecl:
 		if name, ok := export.ExportAs(n.Name, config.ExportTypeFunction); ok && n.Recv == nil {
-			e.data.AddFunction(name, n.Name.Name, filepath.Base(pkg.ID), exports.ParseComment(n.Doc, nil), exports.ParseFunctionSignature(n))
+			data.AddFunction(
+				name,
+				n.Name.Name,
+				filepath.Base(pkg.ID),
+				exports.ParseComment(n.Doc, nil),
+				exports.ParseFunctionSignature(n),
+			)
 		}
 	default:
 		return true
